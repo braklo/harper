@@ -26,7 +26,7 @@ const EXPECTED_DISTANCE: u8 = 3;
 const TRANSPOSITION_COST_ONE: bool = true;
 
 static DICT: LazyLock<Arc<FstDictionary>> =
-    LazyLock::new(|| Arc::new((*MutableDictionary::curated()).clone().into()));
+    LazyLock::new(|| Arc::new(FstDictionary::from_shared(MutableDictionary::curated())));
 
 thread_local! {
     // Builders are computationally expensive and do not depend on the word, so we store a
@@ -50,6 +50,36 @@ impl FstDictionary {
     /// in the Harper binary.
     pub fn curated() -> Arc<Self> {
         (*DICT).clone()
+    }
+
+    /// Build the fuzzy-finding index on top of an existing [`MutableDictionary`], sharing it
+    /// instead of copying it.
+    ///
+    /// [`Self::curated`] used to clone the curated [`MutableDictionary`] and then rebuild a
+    /// second one inside [`Self::new`], so the whole word map was resident twice.
+    pub fn from_shared(mutable_dict: Arc<MutableDictionary>) -> Self {
+        let mut words: Vec<CharString> = mutable_dict
+            .words_iter()
+            .map(|word| word.iter().copied().collect())
+            .collect();
+        words.sort_unstable();
+        words.dedup();
+
+        let mut builder = fst::MapBuilder::memory();
+        for word_chars in words.iter() {
+            let word = word_chars.iter().collect::<String>();
+            builder
+                .insert(word, WordId::from_word_chars(word_chars).into())
+                .expect("Insertion not in lexicographical order!");
+        }
+
+        let fst_bytes = builder.into_inner().unwrap();
+        let word_map = FstMap::new(fst_bytes).expect("Unable to build FST map.");
+
+        FstDictionary {
+            mutable_dict,
+            word_map,
+        }
     }
 
     /// Construct a new [`FstDictionary`] using a wordlist as a source.
