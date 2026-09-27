@@ -75,8 +75,16 @@ enum Args {
         /// Overlapping lints are removed by default. This option disables that behavior.
         #[arg(short = 'o', long)]
         keep_overlapping_lints: bool,
-        /// Specify the dialect. Common synonyms, abbreviations, and codes are supported.
-        #[arg(short, long, default_value = "us")]
+        /// Specify the language and dialect, e.g. `us`, `gb`, `de`, `at`, `sk`.
+        /// Common synonyms, abbreviations, and codes are supported.
+        #[arg(
+            short = 'l',
+            long = "language",
+            value_name = "LANGUAGE",
+            visible_alias = "dialect",
+            visible_short_alias = 'd',
+            default_value = "us"
+        )]
         dialect: String,
         /// Path to the user dictionary.
         #[arg(short, long, default_value = config_dir().unwrap().join("harper-ls/dictionary.txt").into_os_string(), value_hint = ValueHint::FilePath)]
@@ -135,8 +143,15 @@ enum Args {
     },
     /// Emit a decompressed, line-separated list of the words in Harper's dictionary.
     Words {
-        /// Specify the dialect whose dictionary to dump.
-        #[arg(short, long, default_value = "American")]
+        /// Specify the language and dialect whose dictionary to dump.
+        #[arg(
+            short = 'l',
+            long = "language",
+            value_name = "LANGUAGE",
+            visible_alias = "dialect",
+            visible_short_alias = 'd',
+            default_value = "American"
+        )]
         dialect: String,
     },
     /// Summarize a lint record
