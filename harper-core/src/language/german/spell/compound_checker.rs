@@ -28,7 +28,8 @@ use hashbrown::{HashMap, HashSet};
 use lru::LruCache;
 use std::num::NonZeroUsize;
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::Duration;
+use web_time::Instant;
 
 use crate::CharString;
 use crate::dict_word_metadata::{AdjectiveData, DictWordMetadata, NounData};
