@@ -18,6 +18,8 @@ impl LanguageDetector for PolishDetector {
         let mut polish_char_count = 0;
         let mut common_polish_words = 0;
         let mut english_matches = 0;
+        // Words with letters the Polish alphabet lacks but Slovak and Czech use.
+        let mut non_polish_char_count = 0;
 
         // Polish indicators - common words and articles
         let polish_indicators = [
@@ -49,6 +51,13 @@ impl LanguageDetector for PolishDetector {
                         polish_char_count += 1;
                     }
 
+                    if word_content.to_lowercase().contains([
+                        'á', 'é', 'í', 'ú', 'ý', 'ä', 'ô', 'č', 'ď', 'ľ', 'ĺ', 'ň', 'ŕ', 'š', 'ť',
+                        'ž', 'ě', 'ř', 'ů',
+                    ]) {
+                        non_polish_char_count += 1;
+                    }
+
                     // Check for common Polish words
                     let lower_word = word_content.to_lowercase();
                     if polish_indicators.contains(&lower_word.as_str()) {
@@ -78,6 +87,13 @@ impl LanguageDetector for PolishDetector {
         } else {
             0.0
         };
+
+        // Slovak and Czech share many short words with Polish ("po", "na", "do")
+        // and the letter "ó". Leave the text to their detectors when letters
+        // Polish does not have outnumber the Polish ones.
+        if non_polish_char_count > polish_char_count {
+            return None;
+        }
 
         // High confidence: Polish special characters present
         if polish_char_ratio >= 0.01 {
