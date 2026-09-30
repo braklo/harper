@@ -2,7 +2,7 @@ import type { LintOptions } from 'harper.js';
 import { closestBox, type IgnorableLintBox } from './Box';
 import { isGoogleDocsTarget } from './computeLintBoxes/googleDocsUtilities';
 import computeLintBoxes from './computeLintBoxes/index';
-import { isHeading, isVisible } from './domUtils';
+import { hasSkippedContent, isHeading, isVisible, maskedTextParts } from './domUtils';
 import { getCaretPosition, getCMRoot } from './editorUtils';
 import Highlights from './Highlights';
 import PopupHandler from './PopupHandler';
@@ -340,11 +340,10 @@ export default class LintFramework {
 			// The mirror already contains logical whitespace. innerText inserts line breaks
 			// between its positioned spans, splitting sentences at formatting boundaries.
 			text = target.textContent;
+		} else if (target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement) {
+			text = target.value;
 		} else {
-			text =
-				target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement
-					? target.value
-					: (target as HTMLElement).innerText;
+			text = maskedLeafText(target as HTMLElement) ?? (target as HTMLElement).innerText;
 		}
 
 		const newLineIndices: number[] = [];
@@ -407,6 +406,22 @@ export default class LintFramework {
 			this.lastBoxes = boxes;
 		});
 	}
+}
+
+/**
+ * When a target contains descendants that must not be checked (`SKIPPED_CONTENT_SELECTOR`: quoted
+ * text and signatures in e-mail editors, non-editable widgets), build its text with the skipped
+ * text blanked out (see `maskedTextParts`).
+ * Returns null when nothing inside the target is skipped, so the usual `innerText` is used.
+ */
+function maskedLeafText(target: HTMLElement): string | null {
+	if (!hasSkippedContent(target)) {
+		return null;
+	}
+
+	return maskedTextParts(target)
+		.map((part) => part.text)
+		.join('');
 }
 
 /**
