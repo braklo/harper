@@ -39,6 +39,25 @@ const fw = new LintFramework(
 
 const syncGoogleDocsBridge = createGoogleDocsBridgeSync(fw);
 
+/** Stored settings that change which lints the background returns for the same text. */
+const LINT_SETTING_KEYS = [
+	'dialect',
+	'ignoredLints',
+	'isolateEnglish',
+	'lintConfig',
+	'userDictionary',
+	'weirpacks',
+];
+
+// Settings are usually changed on the options page, which clears its own lint cache, not this one.
+// Without this, unchanged text here would keep its old lints until the cache entry expires.
+chrome.storage.onChanged.addListener((changes, areaName) => {
+	if (areaName === 'local' && LINT_SETTING_KEYS.some((key) => key in changes)) {
+		ProtocolClient.clearLintCache();
+		fw.update();
+	}
+});
+
 function padWithContext(source: string, start: number, end: number, contextLength: number): string {
 	const normalizedStart = Math.max(0, Math.min(start, source.length));
 	const normalizedEnd = Math.max(normalizedStart, Math.min(end, source.length));
