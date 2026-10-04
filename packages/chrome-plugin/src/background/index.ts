@@ -449,7 +449,7 @@ async function handleSetLanguageCycle(req: SetLanguageCycleRequest): Promise<Uni
 async function handleGetActiveLanguage(): Promise<GetActiveLanguageResponse> {
 	const dialect = await getDialect();
 	const info = dialectInfo(await getDialectCatalog(), dialect);
-	return { kind: 'getActiveLanguage', dialect, label: languageLabel(info) };
+	return { kind: 'getActiveLanguage', dialect, label: languageLabel(info), code: info?.code ?? '' };
 }
 
 async function handleGetDialectCatalog(): Promise<GetDialectCatalogResponse> {

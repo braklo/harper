@@ -92,9 +92,15 @@ export default class ProtocolClient {
 		return (await chrome.runtime.sendMessage({ kind: 'getDialectCatalog' })).catalog;
 	}
 
-	public static async getActiveLanguage(): Promise<{ dialect: Dialect; label: string }> {
-		const { dialect, label } = await chrome.runtime.sendMessage({ kind: 'getActiveLanguage' });
-		return { dialect, label };
+	public static async getActiveLanguage(): Promise<{
+		dialect: Dialect;
+		label: string;
+		code: string;
+	}> {
+		const { dialect, label, code } = await chrome.runtime.sendMessage({
+			kind: 'getActiveLanguage',
+		});
+		return { dialect, label, code: code ?? '' };
 	}
 
 	public static async getIsolateEnglish(): Promise<boolean> {
