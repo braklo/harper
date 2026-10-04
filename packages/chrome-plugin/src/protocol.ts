@@ -174,6 +174,8 @@ export type GetActiveLanguageResponse = {
 	kind: 'getActiveLanguage';
 	dialect: Dialect;
 	label: string;
+	/** Short code shown on the toolbar icon, e.g. `SK`. */
+	code: string;
 };
 
 export type GetIsolateEnglishRequest = {

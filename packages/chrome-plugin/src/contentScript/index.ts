@@ -10,6 +10,7 @@ import isSubstack from '../isSubstack';
 import isWordPress from '../isWordPress';
 import ProtocolClient from '../ProtocolClient';
 import { createGoogleDocsBridgeSync, isGoogleDocsPage } from './googleDocs';
+import { startLanguageBadge } from './languageBadge';
 import { frameHasFocus, showLanguageNotice } from './languageNotice';
 
 if (isWordPress() || isSubstack()) {
@@ -56,6 +57,20 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 		ProtocolClient.getActiveLanguage().then(({ label }) => showLanguageNotice(`Harper: ${label}`));
 	}
 });
+
+if (!isGoogleDocsPage()) {
+	startLanguageBadge(
+		() => ProtocolClient.getActiveLanguage(),
+		// Not ProtocolClient.getDomainEnabled(): that also clears the lint cache, on every focus.
+		async () =>
+			(
+				await chrome.runtime.sendMessage({
+					kind: 'getDomainStatus',
+					domain: window.location.hostname,
+				})
+			).enabled,
+	);
+}
 
 function padWithContext(source: string, start: number, end: number, contextLength: number): string {
 	const normalizedStart = Math.max(0, Math.min(start, source.length));
