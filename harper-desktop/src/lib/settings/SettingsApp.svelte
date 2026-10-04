@@ -14,12 +14,12 @@ import WeirpacksPage from './pages/WeirpacksPage.svelte';
 import WritingPage from './pages/WritingPage.svelte';
 import type { SectionId } from './settings-data';
 
-let active: SectionId = 'general';
+let active: SectionId = 'getting-started';
 let contentEl: HTMLElement;
 let isLoadingOnboarding = true;
-let onboardingCompleted = false;
 
 const titleMap: Record<SectionId, string> = {
+	'getting-started': 'Getting Started',
 	general: 'General',
 	writing: 'Writing',
 	dictionary: 'Dictionary',
@@ -31,12 +31,12 @@ const titleMap: Record<SectionId, string> = {
 };
 
 onMount(() => {
-	void loadOnboardingState();
+	void loadInitialSection();
 });
 
-async function loadOnboardingState() {
+async function loadInitialSection() {
 	try {
-		onboardingCompleted = await Client.getOnboardingCompleted();
+		active = (await Client.getOnboardingCompleted()) ? 'general' : 'getting-started';
 	} catch (error) {
 		console.error('Unable to load onboarding state.', error);
 	} finally {
@@ -51,36 +51,32 @@ $: if (contentEl && active) {
 }
 </script>
 
-{#if isLoadingOnboarding}
-  <div class="settings-shell">
-    <main class="content" aria-label="Settings">
-      <p role="status">Loading settings...</p>
-    </main>
-  </div>
-{:else if !onboardingCompleted}
-  <GettingStartedPage onComplete={() => (onboardingCompleted = true)} />
-{:else}
-  <div class="settings-shell">
+<div class="settings-shell">
+  {#if !isLoadingOnboarding}
     <SettingsSidebar bind:active />
+  {/if}
 
-    <main bind:this={contentEl} class="content" aria-label={title}>
-      {#if active === "general"}
-        <GeneralPage />
-      {:else if active === "writing"}
-        <WritingPage />
-      {:else if active === "dictionary"}
-        <DictionaryPage />
-      {:else if active === "shortcuts"}
-        <ShortcutsPage />
-      {:else if active === "rules"}
-        <RulesPage />
-      {:else if active === "weirpacks"}
-        <WeirpacksPage />
-      {:else if active === "integrations"}
-        <IntegrationsPage />
-      {:else if active === "about"}
-        <AboutPage />
-      {/if}
-    </main>
-  </div>
-{/if}
+  <main bind:this={contentEl} class="content" aria-label={isLoadingOnboarding ? "Settings" : title}>
+    {#if isLoadingOnboarding}
+      <p>Loading settings...</p>
+    {:else if active === "getting-started"}
+      <GettingStartedPage navigateToSection={(section) => (active = section)} />
+    {:else if active === "general"}
+      <GeneralPage />
+    {:else if active === "writing"}
+      <WritingPage />
+    {:else if active === "dictionary"}
+      <DictionaryPage />
+    {:else if active === "shortcuts"}
+      <ShortcutsPage />
+    {:else if active === "rules"}
+      <RulesPage />
+    {:else if active === "weirpacks"}
+      <WeirpacksPage />
+    {:else if active === "integrations"}
+      <IntegrationsPage />
+    {:else if active === "about"}
+      <AboutPage />
+    {/if}
+  </main>
+</div>

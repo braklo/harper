@@ -36,7 +36,6 @@ mod commands;
 pub mod communication;
 pub mod config;
 mod debounce;
-mod desktop_updater;
 pub mod highlighter;
 pub mod highlighter_service;
 pub mod lint_kind_color;
@@ -180,7 +179,6 @@ pub fn run_tauri() {
 
     tauri::Builder::default()
         .manage(config)
-        .manage(desktop_updater::DesktopUpdater::default())
         .manage(highlighter_service)
         .manage(StdMutex::new(broker))
         .manage(async_runtime)
@@ -197,7 +195,6 @@ pub fn run_tauri() {
 
             set_up_tray_menu(app.handle())?;
             warm_app_search_cache(app.handle().clone());
-            desktop_updater::start_auto_updates(app.handle().clone());
 
             if is_first_launch {
                 windows::show_settings_window(app.handle())?;

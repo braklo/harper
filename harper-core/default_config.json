@@ -1410,13 +1410,6 @@
 						},
 						{
 							"Bool": {
-								"name": "SeizeControlOf",
-								"state": true,
-								"label": "Seize Control of"
-							}
-						},
-						{
-							"Bool": {
 								"name": "SubjunctiveWasToWere",
 								"state": true,
 								"label": "Subjunctive Was To Were"
@@ -2621,13 +2614,6 @@
 								"name": "GoingTo",
 								"state": true,
 								"label": "Going To"
-							}
-						},
-						{
-							"Bool": {
-								"name": "Hallucination",
-								"state": true,
-								"label": "Hallucination"
 							}
 						},
 						{
@@ -4617,13 +4603,6 @@
 								"name": "Combinate",
 								"state": true,
 								"label": "Combinate"
-							}
-						},
-						{
-							"Bool": {
-								"name": "ComfortableWith",
-								"state": true,
-								"label": "Comfortable With"
 							}
 						},
 						{

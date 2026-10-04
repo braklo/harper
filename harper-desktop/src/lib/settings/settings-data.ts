@@ -1,4 +1,5 @@
 export type SectionId =
+	| 'getting-started'
 	| 'general'
 	| 'writing'
 	| 'dictionary'
@@ -15,6 +16,11 @@ export interface NavItem {
 }
 
 export const MAIN_NAV_ITEMS: NavItem[] = [
+	{
+		id: 'getting-started',
+		label: 'Getting Started',
+		gradient: 'linear-gradient(180deg, #f07a3a 0%, #c94614 100%)',
+	},
 	{
 		id: 'general',
 		label: 'General',
