@@ -44,7 +44,7 @@ export default class ProtocolClient {
 		return p;
 	}
 
-	/** Forget cached lint results, e.g. because the language changed and the text did not. */
+	/** Forget cached lint results, because a setting that changes them was updated. */
 	public static clearLintCache(): void {
 		this.lintCache.clear();
 	}
