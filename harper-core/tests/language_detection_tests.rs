@@ -332,3 +332,42 @@ fn test_english_common_phrases() {
         Language::English(Dialect::American),
     );
 }
+
+#[test]
+#[cfg(all(feature = "sk", feature = "pl"))]
+fn test_slovak_is_not_mistaken_for_polish() {
+    use harper_core::language::slovak::dialects::SlovakDialect;
+
+    // Slovak shares "po", "na", "do" and the letter "ó" with Polish.
+    test_detection(
+        "Toto je veta po slovensky. Bratislava je hlavné mesto Slovenska a leží na Dunaji. \
+         Dnes je pekný deň a ideme sa prechádzať do parku.",
+        Language::Slovak(SlovakDialect::Standard),
+    );
+    test_detection(
+        "Na stole leží pero a pod ním je list papiera. Po obede pôjdeme do mesta na nákup \
+         a potom sa vrátime domov.",
+        Language::Slovak(SlovakDialect::Standard),
+    );
+    test_detection(
+        "V sobotu sme boli na futbale a náš tím dal dva góly. Po zápase sme išli do reštaurácie \
+         na večeru.",
+        Language::Slovak(SlovakDialect::Standard),
+    );
+}
+
+#[test]
+#[cfg(feature = "pl")]
+fn test_polish_is_still_detected() {
+    use harper_core::language::polish::dialects::PolishDialect;
+
+    test_detection(
+        "Wczoraj poszliśmy do kina, a potem zjedliśmy kolację w małej restauracji na rogu ulicy.",
+        Language::Polish(PolishDialect::Standard),
+    );
+    test_detection(
+        "Mój brat mieszka w Krakowie i pracuje jako nauczyciel. W weekend odwiedził nas Václav \
+         z Pragi.",
+        Language::Polish(PolishDialect::Standard),
+    );
+}
