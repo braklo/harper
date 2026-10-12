@@ -9,6 +9,7 @@ import {
 } from 'harper.js';
 import logo from '/logo.png';
 import { CYCLE_LANGUAGE_COMMAND, DEFAULT_CYCLE_SHORTCUT } from '../commands';
+import { SHOW_LANGUAGE_BADGE_KEY } from '../contentScript/languageBadge';
 import {
 	codeFlag,
 	dialectInfo,
@@ -50,6 +51,7 @@ let capturingCycleShortcut = $state(false);
 let cycleShortcutError = $state('');
 let isolateEnglish = $state(false);
 let rememberLanguage = $state(true);
+let showLanguageBadge = $state(true);
 let delay = $state(0);
 let delayLoaded = $state(false);
 let defaultEnabled = $state(false);
@@ -110,6 +112,10 @@ chrome.storage.local.get({ rememberLanguage: true }).then((value) => {
 
 ProtocolClient.getIsolateEnglish().then((value) => {
 	isolateEnglish = value;
+});
+
+chrome.storage.local.get({ [SHOW_LANGUAGE_BADGE_KEY]: true }).then((items) => {
+	showLanguageBadge = items[SHOW_LANGUAGE_BADGE_KEY] !== false;
 });
 
 ProtocolClient.getDelay().then((value) => {
@@ -267,6 +273,16 @@ function setIsolateEnglishFromCheckbox(event: Event): void {
 
 	isolateEnglish = input.checked;
 	ProtocolClient.setIsolateEnglish(input.checked);
+}
+
+function setShowLanguageBadgeFromCheckbox(event: Event): void {
+	const input = event.currentTarget;
+	if (!(input instanceof HTMLInputElement)) {
+		return;
+	}
+
+	showLanguageBadge = input.checked;
+	chrome.storage.local.set({ [SHOW_LANGUAGE_BADGE_KEY]: input.checked });
 }
 
 function toggleGroup(groupKey: string) {
@@ -638,6 +654,23 @@ async function removeWeirpack(id: string) {
             type="checkbox"
             checked={isolateEnglish}
             onchange={setIsolateEnglishFromCheckbox}
+            class="h-5 w-5"
+          />
+        </div>
+      </div>
+
+      <div class="space-y-5">
+        <div class="flex items-center justify-between">
+          <div class="flex flex-col">
+            <h3 class="text-sm">Show Language Next to the Field</h3>
+            <p class="text-xs text-gray-600 dark:text-gray-400">
+              Show the active language in the corner of the text field you are typing in.
+            </p>
+          </div>
+          <input
+            type="checkbox"
+            checked={showLanguageBadge}
+            onchange={setShowLanguageBadgeFromCheckbox}
             class="h-5 w-5"
           />
         </div>
