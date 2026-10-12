@@ -1,10 +1,12 @@
 import '@webcomponents/custom-elements';
 import {
 	getClosestBlockAncestor,
+	isSkippedContent,
 	isVisible,
 	LintFramework,
 	leafNodes,
 	type UnpackedLint,
+	unlockSkippedBlock,
 } from 'lint-framework';
 import isSubstack from '../isSubstack';
 import isWordPress from '../isWordPress';
@@ -236,7 +238,7 @@ function scan() {
 		const seenBlockContainers = new Set<Element>();
 
 		for (const leaf of leafs) {
-			if (leaf.parentElement?.closest('[contenteditable="false"],[disabled],[readonly]') != null) {
+			if (isSkippedContent(leaf)) {
 				continue;
 			}
 
@@ -262,6 +264,27 @@ new MutationObserver(scan).observe(document.body, {
 	childList: true,
 	subtree: true,
 });
+
+// Quoted text is skipped (see `isSkippedContent`), but once the user edits a quoted block, check it.
+document.addEventListener(
+	'input',
+	() => {
+		const anchor = document.getSelection()?.anchorNode;
+		if (anchor == null || !isSkippedContent(anchor)) {
+			return;
+		}
+
+		const host = (anchor instanceof Element ? anchor : anchor.parentElement)?.closest(
+			'[contenteditable]',
+		);
+		const block = host != null ? getClosestBlockAncestor(anchor, host) : null;
+		if (block != null) {
+			unlockSkippedBlock(block);
+			scan();
+		}
+	},
+	{ capture: true },
+);
 
 document.addEventListener(
 	'focusin',
