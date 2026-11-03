@@ -2,7 +2,7 @@ import type { LintOptions } from 'harper.js';
 import { closestBox, type IgnorableLintBox } from './Box';
 import { isGoogleDocsTarget } from './computeLintBoxes/googleDocsUtilities';
 import computeLintBoxes from './computeLintBoxes/index';
-import { isHeading, isVisible } from './domUtils';
+import { hasSkippedContent, isHeading, isVisible, maskedTextParts } from './domUtils';
 import { getCaretPosition, getCMRoot } from './editorUtils';
 import Highlights from './Highlights';
 import PopupHandler from './PopupHandler';
@@ -198,11 +198,13 @@ export default class LintFramework {
 						return { target: null as HTMLElement | null, lints: {} };
 					}
 
-					const { text, isCM, newLineIndices } = this.getTargetText(target);
+					const { text: fullText, isCM, newLineIndices } = this.getTargetText(target);
 
-					if (!text || text.length > 120000) {
+					if (!fullText) {
 						return { target: null as HTMLElement | null, lints: {} };
 					}
+
+					const text = truncateForLint(fullText);
 
 					const language = getTargetLanguage(target);
 					let lintsBySource = await this.lintProvider(text, window.location.hostname, {
@@ -368,11 +370,10 @@ export default class LintFramework {
 			// The mirror already contains logical whitespace. innerText inserts line breaks
 			// between its positioned spans, splitting sentences at formatting boundaries.
 			text = target.textContent;
+		} else if (target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement) {
+			text = target.value;
 		} else {
-			text =
-				target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement
-					? target.value
-					: (target as HTMLElement).innerText;
+			text = maskedLeafText(target as HTMLElement) ?? (target as HTMLElement).innerText;
 		}
 
 		const newLineIndices: number[] = [];
@@ -435,6 +436,39 @@ export default class LintFramework {
 			this.lastBoxes = boxes;
 		});
 	}
+}
+
+/** Longer text is linted only up to this length, so a huge target does not stall the page. */
+const MAX_LINT_LENGTH = 120000;
+
+/**
+ * Cut text longer than `MAX_LINT_LENGTH` at the last line break or space before the limit, so the
+ * beginning of a long target is still checked and no word is cut in half.
+ */
+function truncateForLint(text: string): string {
+	if (text.length <= MAX_LINT_LENGTH) {
+		return text;
+	}
+
+	const head = text.slice(0, MAX_LINT_LENGTH);
+	const cut = Math.max(head.lastIndexOf('\n'), head.lastIndexOf(' '));
+	return cut > 0 ? head.slice(0, cut) : head;
+}
+
+/**
+ * When a target contains descendants that must not be checked (`SKIPPED_CONTENT_SELECTOR`: quoted
+ * text and signatures in e-mail editors, non-editable widgets), build its text with the skipped
+ * text blanked out (see `maskedTextParts`).
+ * Returns null when nothing inside the target is skipped, so the usual `innerText` is used.
+ */
+function maskedLeafText(target: HTMLElement): string | null {
+	if (!hasSkippedContent(target)) {
+		return null;
+	}
+
+	return maskedTextParts(target)
+		.map((part) => part.text)
+		.join('');
 }
 
 /**

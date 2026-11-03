@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>E-mail reply with a large quote</title>
+  </head>
+  <body>
+    <div id="editor" contenteditable="true">
+      This is an test of the Harper grammar checker.<br />
+      <br />
+      <div class="moz-cite-prefix">On Monday, someone wrote:<br /></div>
+      <blockquote type="cite"><p id="quoted"></p></blockquote>
+    </div>
+    <script>
+      // Newsletters can carry hundreds of kilobytes of HTML comments (Foxmail, Outlook) or long
+      // text. Neither should push the reply over the length limit for linting.
+      const params = new URLSearchParams(location.search);
+      const quote = document.querySelector('blockquote');
+      if (params.has('comment')) {
+        quote.appendChild(document.createComment(' x'.repeat(100000)));
+      }
+      if (params.has('text')) {
+        document.getElementById('quoted').textContent = 'The cat sat on the mat. '.repeat(6000);
+      }
+    </script>
+  </body>
+</html>
