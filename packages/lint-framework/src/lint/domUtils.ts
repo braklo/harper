@@ -177,8 +177,10 @@ function blockOf(node: Node, root: Element): Node {
  * text it contributes, and a line break (`node: null`) between consecutive leaves in different
  * blocks that nothing else separates, such as a list item followed by a paragraph.
  *
- * Skipped text is blanked out and ends with a line break. Every leaf keeps its length, so
- * `getRangeForTextSpan`, which walks the same parts, maps offsets back to the DOM.
+ * Skipped text is left out: a run of skipped leaves contributes a single line break, so a long
+ * quoted message does not count against the length limit for linting. Comments contribute
+ * nothing. Every other leaf keeps its length, and `getRangeForTextSpan` walks the same parts with
+ * these lengths to map offsets back to the DOM.
  *
  * The text is linted as Markdown, where a line starting with four spaces is a code block and is
  * not checked. Raw leaf text keeps the source indentation that `innerText` would collapse, so
@@ -190,6 +192,10 @@ export function maskedTextParts(target: Element): { node: Node | null; text: str
 	let lastBlock: Node | null = null;
 
 	for (const leaf of leafNodes(target)) {
+		if (isIgnoredLeaf(leaf)) {
+			continue;
+		}
+
 		const block = blockOf(leaf, target);
 
 		if (lastBlock != null && block !== lastBlock && lastChar !== '\n') {
@@ -209,7 +215,7 @@ export function maskedTextParts(target: Element): { node: Node | null; text: str
 			const skipped = leaf.parentElement?.closest(`${SKIPPED_CONTENT_SELECTOR},style,script,title`);
 
 			if (skipped != null && target.contains(skipped)) {
-				text = content.length > 0 ? `${' '.repeat(content.length - 1)}\n` : '';
+				text = content.length > 0 && lastChar !== '\n' ? '\n' : '';
 			} else if (lastChar === '\n') {
 				text = content.replace(/^\s+/, (run) => '\n'.repeat(run.length));
 			} else {
@@ -233,39 +239,47 @@ export function maskedTextParts(target: Element): { node: Node | null; text: str
  * @param span
  */
 export function getRangeForTextSpan(target: Element, span: Span): Range | null {
-	const children = hasSkippedContent(target)
-		? maskedTextParts(target).map((part) => part.node)
-		: leafNodes(target);
+	const children: { node: Node | null; length: number }[] = hasSkippedContent(target)
+		? maskedTextParts(target).map((part) => ({ node: part.node, length: part.text.length }))
+		: leafNodes(target).map((node) => ({
+				node,
+				length:
+					node.nodeName === 'BR' ? 1 : isIgnoredLeaf(node) ? 0 : (node.textContent ?? '').length,
+			}));
 
 	const range = document.createRange();
 	let traversed = 0;
 
 	let startFound = false;
 
-	for (let i = 0; i < children.length; i++) {
-		const child = children[i] as HTMLElement | null;
-
-		if (child == null || child.nodeName === 'BR') {
-			traversed += 1;
+	for (const { node: child, length } of children) {
+		if (child == null || child.nodeName === 'BR' || length === 0) {
+			traversed += length;
 			continue;
 		}
 
-		const childText = child.textContent ?? '';
+		// A skipped leaf contributes less text than it holds, so keep offsets inside the node.
+		const maxOffset = (child.textContent ?? '').length;
 
-		if (traversed + childText.length > span.start && !startFound) {
-			range.setStart(child, span.start - traversed);
+		if (traversed + length > span.start && !startFound) {
+			range.setStart(child, Math.min(span.start - traversed, maxOffset));
 			startFound = true;
 		}
 
-		if (startFound && traversed + childText.length >= span.end) {
-			range.setEnd(child, span.end - traversed);
+		if (startFound && traversed + length >= span.end) {
+			range.setEnd(child, Math.min(span.end - traversed, maxOffset));
 			return range;
 		}
 
-		traversed += childText?.length ?? 0;
+		traversed += length;
 	}
 
 	return null;
+}
+
+/** Leaves that hold no visible text, such as comments, which `innerText` leaves out too. */
+function isIgnoredLeaf(node: Node): boolean {
+	return node.nodeType === Node.COMMENT_NODE || node.nodeType === Node.PROCESSING_INSTRUCTION_NODE;
 }
 
 const sharedRange: Range | null = typeof document !== 'undefined' ? document.createRange() : null;

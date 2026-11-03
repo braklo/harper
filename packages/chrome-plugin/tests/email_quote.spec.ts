@@ -39,3 +39,12 @@ test('Keeps a list item and the next line apart next to a signature.', async ({ 
 	const listBox = (await page.locator('ul').boundingBox())!;
 	expect(highlightBox.y + highlightBox.height / 2).toBeGreaterThan(listBox.y + listBox.height);
 });
+
+for (const variant of ['comment', 'text']) {
+	test(`Checks a reply above a quote with a long ${variant}.`, async ({ page }) => {
+		await page.goto(`http://localhost:8081/email_quote_large.html?${variant}`);
+
+		const highlights = getHarperHighlights(page);
+		await expect(highlights).toHaveCount(1, { timeout: 24000 });
+	});
+}
