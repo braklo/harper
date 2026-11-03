@@ -64,6 +64,7 @@ import {
 	type UnitResponse,
 	type WeirpackMeta,
 } from '../protocol';
+import transmitsNoData from '../transmitsNoData';
 import { detectBrowserDialect } from './detectDialect';
 
 console.log('background is running');
@@ -616,6 +617,10 @@ async function handleOpenReportError(
 }
 
 async function handlePostFormData(req: PostFormDataRequest): Promise<PostFormDataResponse> {
+	if (transmitsNoData()) {
+		return { kind: 'postFormData', success: false };
+	}
+
 	const formData = new FormData();
 	for (const [key, value] of Object.entries(req.formData)) {
 		formData.append(key, value);

@@ -9,6 +9,7 @@ import {
 import isSubstack from '../isSubstack';
 import isWordPress from '../isWordPress';
 import ProtocolClient from '../ProtocolClient';
+import transmitsNoData from '../transmitsNoData';
 import { createGoogleDocsBridgeSync, isGoogleDocsPage } from './googleDocs';
 import { frameHasFocus, showLanguageNotice } from './languageNotice';
 
@@ -25,12 +26,14 @@ const fw = new LintFramework(
 		getDelay: () => ProtocolClient.getDelay(),
 		openOptions: () => ProtocolClient.openOptions(),
 		addToUserDictionary: (words) => ProtocolClient.addToUserDictionary(words),
-		reportError: (lint: UnpackedLint, ruleId: string) =>
-			ProtocolClient.openReportError(
-				padWithContext(lint.source, lint.span.start, lint.span.end, 15),
-				ruleId,
-				'',
-			),
+		reportError: transmitsNoData()
+			? undefined
+			: (lint: UnpackedLint, ruleId: string) =>
+					ProtocolClient.openReportError(
+						padWithContext(lint.source, lint.span.start, lint.span.end, 15),
+						ruleId,
+						'',
+					),
 		setRuleEnabled: async (ruleId, enabled) => {
 			await ProtocolClient.setRuleEnabled(ruleId, enabled);
 			fw.update();
