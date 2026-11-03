@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Long text test</title>
+  </head>
+  <body>
+    <div id="editor" contenteditable="true"></div>
+    <script>
+      // One text over the length limit for linting: its beginning is still checked.
+      document.getElementById('editor').textContent =
+        'This is an test of the Harper grammar checker. ' + 'The cat sat on the mat. '.repeat(6000);
+    </script>
+  </body>
+</html>

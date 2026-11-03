@@ -170,11 +170,13 @@ export default class LintFramework {
 						return { target: null as HTMLElement | null, lints: {} };
 					}
 
-					const { text, isCM, newLineIndices } = this.getTargetText(target);
+					const { text: fullText, isCM, newLineIndices } = this.getTargetText(target);
 
-					if (!text || text.length > 120000) {
+					if (!fullText) {
 						return { target: null as HTMLElement | null, lints: {} };
 					}
+
+					const text = truncateForLint(fullText);
 
 					const language = getTargetLanguage(target);
 					let lintsBySource = await this.lintProvider(text, window.location.hostname, {
@@ -406,6 +408,23 @@ export default class LintFramework {
 			this.lastBoxes = boxes;
 		});
 	}
+}
+
+/** Longer text is linted only up to this length, so a huge target does not stall the page. */
+const MAX_LINT_LENGTH = 120000;
+
+/**
+ * Cut text longer than `MAX_LINT_LENGTH` at the last line break or space before the limit, so the
+ * beginning of a long target is still checked and no word is cut in half.
+ */
+function truncateForLint(text: string): string {
+	if (text.length <= MAX_LINT_LENGTH) {
+		return text;
+	}
+
+	const head = text.slice(0, MAX_LINT_LENGTH);
+	const cut = Math.max(head.lastIndexOf('\n'), head.lastIndexOf(' '));
+	return cut > 0 ? head.slice(0, cut) : head;
 }
 
 /**
