@@ -3,7 +3,7 @@
 //! This module provides the Slovak dictionary implementation.
 //! Uses Rune format dictionaries with annotations for comprehensive coverage.
 
-use crate::spell::{FstDictionary, MutableDictionary};
+use crate::spell::{FstDictionary, MutableDictionary, SuggestionHints};
 use std::sync::{Arc, LazyLock};
 
 fn load_slovak_annotated_dict() -> Arc<MutableDictionary> {
@@ -13,6 +13,17 @@ fn load_slovak_annotated_dict() -> Arc<MutableDictionary> {
     )
     .map(Arc::new)
     .unwrap_or_else(|e| panic!("Failed to load Slovak annotated dictionary: {}", e))
+}
+
+static SLOVAK_SUGGESTION_HINTS: LazyLock<SuggestionHints> = LazyLock::new(|| {
+    SuggestionHints::from_annotations_json(include_str!("../annotations.json"))
+        .unwrap_or_else(|e| panic!("Failed to read the Slovak suggestion hints: {}", e))
+});
+
+/// The suggestion hints (REP, MAP, KEY, TRY) imported from `sk_SK.aff` into the
+/// `suggestions` section of `annotations.json`.
+pub fn slovak_suggestion_hints() -> &'static SuggestionHints {
+    &SLOVAK_SUGGESTION_HINTS
 }
 
 // New annotated dictionary using Rune format
