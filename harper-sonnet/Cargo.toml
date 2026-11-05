@@ -1,0 +1,23 @@
+[package]
+name = "harper-sonnet"
+version = "0.1.0"
+edition = "2024"
+description = "Harper as a spell-checking backend for KDE Sonnet (C ABI core of the Sonnet plugin)."
+license = "Apache-2.0"
+publish = false
+
+# Own workspace: the plugin runs inside every KDE application, so it must not
+# inherit the main workspace's `panic = "abort"` release profile. A panic in
+# Harper must become "no answer" in Sonnet, not a crashed KWrite or KMail.
+[workspace]
+
+[lib]
+crate-type = ["staticlib", "rlib"]
+
+[dependencies]
+harper-core = { path = "../harper-core", default-features = false, features = ["concurrent", "language-module", "de", "sk"] }
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+panic = "unwind"
