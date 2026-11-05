@@ -86,9 +86,11 @@ export default function computeLintBoxes(
 				rule,
 				range: range instanceof Range ? range : undefined,
 				applySuggestion: (sug: UnpackedSuggestion) => {
-					const current = isFormEl(el)
-						? (el as HTMLInputElement | HTMLTextAreaElement).value
-						: el.innerText;
+					// The span refers to the text that was linted, which differs from `innerText` when
+					// the target has skipped content (see `maskedLeafText`).
+					const current =
+						lint.source ??
+						(isFormEl(el) ? (el as HTMLInputElement | HTMLTextAreaElement).value : el.innerText);
 					replaceValue(el, lint.span, suggestionToReplacementText(sug, lint.span, current));
 				},
 				ignoreLint: opts.ignoreLint ? () => opts.ignoreLint!(lint.context_hash) : undefined,
