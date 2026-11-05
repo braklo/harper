@@ -43,14 +43,24 @@ const fw = new LintFramework(
 
 const syncGoogleDocsBridge = createGoogleDocsBridgeSync(fw);
 
-// Check the text again in the new language right away, instead of waiting for the next edit.
+/** Stored settings that change which lints the background returns for the same text. */
+const LINT_SETTING_KEYS = [
+	'dialect',
+	'ignoredLints',
+	'isolateEnglish',
+	'lintConfig',
+	'userDictionary',
+	'weirpacks',
+];
+
+// Settings are usually changed on the options page, which clears its own lint cache, not this one.
+// Without this, unchanged text here would keep its old lints until the cache entry expires.
 chrome.storage.onChanged.addListener((changes, areaName) => {
 	if (areaName !== 'local') {
 		return;
 	}
 
-	if (changes.dialect != null) {
-		// Cached results are keyed by text, not language, so they would bring back the old lints.
+	if (LINT_SETTING_KEYS.some((key) => key in changes)) {
 		ProtocolClient.clearLintCache();
 		fw.update();
 	}
