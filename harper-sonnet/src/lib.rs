@@ -10,9 +10,10 @@
 //! Design constraints, all because the plugin lives inside every KDE
 //! application that checks spelling:
 //!
-//! - Loading a dictionary takes seconds, so it happens on a background thread.
-//!   Until it is ready every word counts as correct and nothing is underlined.
-//! - Each language loads at most once per process, on first use.
+//! - Each language loads at most once per process, on the first checked
+//!   word. That word waits for the load (a few seconds for Slovak); a
+//!   background load left opened files without underlines (see
+//!   `Shared::ensure_loaded`).
 //! - A panic must never cross into C++: every entry point catches it and
 //!   answers "correct" / "no suggestions". The crate is built with
 //!   `panic = "unwind"` for that reason (see `Cargo.toml`).
@@ -51,8 +52,8 @@ type Verdict = Option<Vec<String>>;
 struct Shared {
     language: Language,
     key: String,
-    /// Set once the background load has been started (first checked word).
-    loading_started: std::sync::Once,
+    /// Completed once the dictionary has been loaded (first checked word).
+    loaded: std::sync::Once,
     engine: Mutex<Option<Engine>>,
     /// Words added during this process (personal and session).
     extra_words: Mutex<HashSet<String>>,
@@ -199,7 +200,7 @@ impl Shared {
         let shared = Arc::new(Shared {
             language,
             key: key.clone(),
-            loading_started: std::sync::Once::new(),
+            loaded: std::sync::Once::new(),
             engine: Mutex::new(None),
             extra_words: Mutex::new(HashSet::new()),
             cache: Mutex::new(HashMap::new()),
@@ -208,28 +209,25 @@ impl Shared {
         Some(shared)
     }
 
-    /// Start loading the dictionary in the background, once. Called on the
-    /// first word, not when Sonnet creates the speller: Sonnet creates
-    /// spellers for languages it never ends up using (dictionary lists,
-    /// language guessing), and each would otherwise cost seconds and
-    /// hundreds of MB.
-    fn ensure_loading(self: &Arc<Self>) {
-        self.loading_started.call_once(|| {
-            let loading = self.clone();
+    /// Load the dictionary on the first checked word, once, in the calling
+    /// thread. The first word in a language blocks for the few seconds the
+    /// load takes (BK 5. 11.): a background load let KTextEditor check an
+    /// opened file while every word still counted as correct, and it never
+    /// rechecked it, so nothing got underlined. Loading is still deferred to
+    /// the first word, not to speller creation: Sonnet creates spellers for
+    /// languages it never ends up using.
+    fn ensure_loaded(&self) {
+        self.loaded.call_once(|| {
             let language = self.language;
-            let started = std::thread::Builder::new()
-                .name(format!("harper-sonnet-{}", self.key))
-                .spawn(move || {
-                    let built = catch_unwind(|| build_engine(language)).unwrap_or_else(|_| {
-                        eprintln!("harper-sonnet: loading {language:?} panicked");
-                        None
-                    });
-                    if let (Some(engine), Ok(mut slot)) = (built, loading.engine.lock()) {
-                        *slot = Some(engine);
-                    }
-                });
-            if started.is_err() {
-                eprintln!("harper-sonnet: could not start the loader thread for {}", self.key);
+            let built = catch_unwind(|| build_engine(language)).unwrap_or_else(|_| {
+                eprintln!("harper-sonnet: loading {language:?} panicked");
+                None
+            });
+            if built.is_none() {
+                eprintln!("harper-sonnet: {} not available, every word counts as correct", self.key);
+            }
+            if let (Some(engine), Ok(mut slot)) = (built, self.engine.lock()) {
+                *slot = Some(engine);
             }
         });
     }
@@ -238,9 +236,9 @@ impl Shared {
         self.engine.lock().map(|e| e.is_some()).unwrap_or(false)
     }
 
-    /// `None` while the dictionary is still loading (or failed to load).
-    fn verdict(self: &Arc<Self>, word: &str) -> Option<Verdict> {
-        self.ensure_loading();
+    /// `None` when the dictionary failed to load.
+    fn verdict(&self, word: &str) -> Option<Verdict> {
+        self.ensure_loaded();
         if self
             .extra_words
             .lock()
@@ -345,7 +343,7 @@ pub unsafe extern "C" fn harper_sonnet_free(speller: *mut HarperSpeller) {
     }
 }
 
-/// 1 when the dictionary of this speller is loaded, 0 while it is loading.
+/// 1 when the dictionary of this speller is loaded, 0 before the first word.
 ///
 /// # Safety
 /// `speller` must be a live handle.
@@ -357,7 +355,8 @@ pub unsafe extern "C" fn harper_sonnet_is_ready(speller: *const HarperSpeller) -
     guarded(0, || c_int::from(speller.shared.is_ready()))
 }
 
-/// 1 = correct (also while loading or on any error), 0 = misspelled.
+/// 1 = correct (also on any error), 0 = misspelled. The first call per
+/// language blocks until the dictionary is loaded.
 ///
 /// # Safety
 /// `speller` must be a live handle; `word` must point to `len` bytes of UTF-8.

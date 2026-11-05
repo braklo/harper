@@ -42,15 +42,12 @@ int main(int argc, char **argv)
     expect(sk != nullptr, "creates sk_SK speller");
     expect(client->createSpeller(QStringLiteral("xx_XX")) == nullptr, "rejects xx_XX");
 
-    // While loading, everything counts as correct.
-    expect(sk->isCorrect(QStringLiteral("nezavisle")), "correct while loading (nothing underlined)");
-
+    // The first word blocks until the dictionary is loaded.
     QElapsedTimer t;
     t.start();
-    while (sk->isCorrect(QStringLiteral("nezavisle")) && t.elapsed() < 60000) {
-        QThread::msleep(50);
-    }
-    std::printf("sk_SK ready after ~%lld ms\n", t.elapsed());
+    const bool firstCorrect = sk->isCorrect(QStringLiteral("nezavisle"));
+    std::printf("first word answered after %lld ms (includes loading)\n", t.elapsed());
+    expect(!firstCorrect, "first word already checked by the loaded dictionary");
 
     expect(!sk->isCorrect(QStringLiteral("nezavisle")), "nezavisle misspelled");
     expect(sk->isCorrect(QStringLiteral("nezávisle")), "nezávisle correct");
