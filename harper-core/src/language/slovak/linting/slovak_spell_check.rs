@@ -4,7 +4,9 @@
 //! misspelled words in Slovak text.
 
 use crate::language::slovak::dialects::SlovakDialect;
+use crate::language::slovak::spell::slovak_suggestion_hints;
 use crate::linting::{Lint, LintKind, Linter, Suggestion};
+use crate::spell::{SuggestionHints, suggest_correct_spelling_with_hints};
 use crate::{TokenStringExt, document::Document, spell::Dictionary};
 
 /// A spell checker for Slovak text.
@@ -14,6 +16,7 @@ where
 {
     dictionary: T,
     dialect: SlovakDialect,
+    hints: &'static SuggestionHints,
 }
 
 impl<T: Dictionary> SlovakSpellCheck<T> {
@@ -21,6 +24,7 @@ impl<T: Dictionary> SlovakSpellCheck<T> {
         Self {
             dictionary,
             dialect,
+            hints: slovak_suggestion_hints(),
         }
     }
 
@@ -29,13 +33,28 @@ impl<T: Dictionary> SlovakSpellCheck<T> {
         self.dialect
     }
 
-    /// Get spelling suggestions for a word using fuzzy matching.
-    fn get_suggestions(&self, word: &[char]) -> Vec<Vec<char>> {
-        // Use the dictionary's fuzzy matching (FST-based Levenshtein)
-        let results = self.dictionary.fuzzy_match(word, 2, 5);
+    /// The most suggestions offered for one word.
+    const MAX_SUGGESTIONS: usize = 5;
 
-        // Extract suggestions from results
-        let suggestions = results.into_iter().map(|r| r.word.to_vec()).collect();
+    /// How many edit-distance matches are ranked. `fuzzy_match` cuts its
+    /// results in code point order, so a small limit drops words with
+    /// diacritics ("ťo" would never get "to" or "čo").
+    const CANDIDATE_LIMIT: usize = 200;
+
+    /// Get spelling suggestions for a word, ranked with the Slovak suggestion
+    /// hints (REP, MAP, KEY, TRY) imported from hunspell-sk.
+    fn get_suggestions(&self, word: &[char]) -> Vec<Vec<char>> {
+        let suggestions = suggest_correct_spelling_with_hints(
+            word,
+            Self::CANDIDATE_LIMIT,
+            2,
+            &self.dictionary,
+            self.hints,
+        )
+        .into_iter()
+        .take(Self::MAX_SUGGESTIONS)
+        .map(<[char]>::to_vec)
+        .collect();
 
         match_capitalization(word, suggestions)
     }
@@ -145,6 +164,55 @@ mod tests {
     fn suggestions_for(word: &str) -> Vec<String> {
         let check = SlovakSpellCheck::new(curated_slovak_dictionary(), SlovakDialect::default());
         strings(check.get_suggestions(&chars(word)))
+    }
+
+    #[test]
+    fn diacritic_variant_comes_first() {
+        // Reported by the hunspell-sk maintainer: "ťo" used to get "bo, do, ho, io, no".
+        let suggestions = suggestions_for("ťo");
+        assert_eq!(
+            suggestions.first().map(String::as_str),
+            Some("to"),
+            "got {suggestions:?}"
+        );
+        assert!(
+            suggestions.contains(&"čo".to_string()),
+            "got {suggestions:?}"
+        );
+    }
+
+    #[test]
+    fn missing_diacritic_is_restored() {
+        let suggestions = suggestions_for("chraniť");
+        assert_eq!(
+            suggestions.first().map(String::as_str),
+            Some("chrániť"),
+            "got {suggestions:?}"
+        );
+    }
+
+    #[test]
+    fn word_typed_without_any_diacritics_is_found() {
+        // Three edits away, beyond the edit-distance search.
+        let suggestions = suggestions_for("stastni");
+        assert_eq!(
+            suggestions.first().map(String::as_str),
+            Some("šťastní"),
+            "got {suggestions:?}"
+        );
+        let suggestions = suggestions_for("Dolezity");
+        assert_eq!(
+            suggestions.first().map(String::as_str),
+            Some("Dôležitý"),
+            "got {suggestions:?}"
+        );
+    }
+
+    #[test]
+    fn hints_are_loaded() {
+        let hints = super::slovak_suggestion_hints();
+        assert!(hints.map.iter().any(|g| g == &["t", "ť"]));
+        assert!(!hints.rep.is_empty());
     }
 
     #[test]

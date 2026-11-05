@@ -2,6 +2,7 @@
 
 pub use self::slovak_dict::{
     curated_slovak_dictionary, mutable_slovak_dictionary, slovak_dictionary,
+    slovak_suggestion_hints,
 };
 
 pub mod slovak_dict;
