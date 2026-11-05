@@ -4,6 +4,7 @@ import { Button } from 'components';
 import Fa from 'svelte-fa';
 import generateGreeting from '../generateGreeting';
 import ProtocolClient from '../ProtocolClient';
+import transmitsNoData from '../transmitsNoData';
 
 let { onReviewDomain }: { onReviewDomain: (works: boolean, domain: string) => void } = $props();
 
@@ -139,7 +140,7 @@ function daysSince(date: Date): number {
         Review
       </Button>
     </section>
-  {:else}
+  {:else if !transmitsNoData()}
     <section class="flex flex-row justify-between p-2 items-center">
       <p class="text-sm font-medium font-sans dark:text-white text-left">
         Does Harper work well on this site?
