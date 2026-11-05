@@ -1,0 +1,72 @@
+// Loads the built plugin the way Sonnet's Loader does and checks a few words.
+// Usage: plugintest <path/to/sonnet_harper.so>
+// SPDX-License-Identifier: Apache-2.0
+#include "client_p.h"
+#include "spellerplugin_p.h"
+
+#include <QCoreApplication>
+#include <QElapsedTimer>
+#include <QPluginLoader>
+#include <QThread>
+#include <cstdio>
+
+static int failures = 0;
+static void expect(bool ok, const char *what)
+{
+    std::printf("%s %s\n", ok ? "OK  " : "FAIL", what);
+    if (!ok) {
+        ++failures;
+    }
+}
+
+int main(int argc, char **argv)
+{
+    QCoreApplication app(argc, argv);
+    QPluginLoader loader(QString::fromLocal8Bit(argv[1]));
+    auto *client = qobject_cast<Sonnet::Client *>(loader.instance());
+    expect(client != nullptr, "plugin loads as org.kde.sonnet.Client");
+    if (!client) {
+        std::printf("%s\n", qPrintable(loader.errorString()));
+        return 1;
+    }
+    expect(client->name() == QLatin1String("Harper"), "name is Harper");
+    expect(client->languages().contains(QStringLiteral("sk_SK")), "offers sk_SK");
+
+    Sonnet::SpellerPlugin *sk = client->createSpeller(QStringLiteral("sk_SK"));
+    expect(sk != nullptr, "creates sk_SK speller");
+    expect(client->createSpeller(QStringLiteral("xx_XX")) == nullptr, "rejects xx_XX");
+
+    // While loading, everything counts as correct.
+    expect(sk->isCorrect(QStringLiteral("nezavisle")), "correct while loading (nothing underlined)");
+
+    QElapsedTimer t;
+    t.start();
+    while (sk->isCorrect(QStringLiteral("nezavisle")) && t.elapsed() < 60000) {
+        QThread::msleep(50);
+    }
+    std::printf("sk_SK ready after ~%lld ms\n", t.elapsed());
+
+    expect(!sk->isCorrect(QStringLiteral("nezavisle")), "nezavisle misspelled");
+    expect(sk->isCorrect(QStringLiteral("nezávisle")), "nezávisle correct");
+    const QStringList s = sk->suggest(QStringLiteral("nezavisle"));
+    std::printf("suggest(nezavisle) = %s\n", qPrintable(s.join(QStringLiteral(", "))));
+    expect(s.contains(QStringLiteral("nezávisle")), "suggests nezávisle");
+
+    t.restart();
+    int n = 0;
+    for (const char *w : {"Dobrý", "deň", "toto", "je", "slovenský", "text", "s", "chybou", "vetaa", "a", "ďalšie", "slová"}) {
+        sk->isCorrect(QString::fromUtf8(w));
+        ++n;
+    }
+    std::printf("%d words in %lld ms (first pass)\n", n, t.elapsed());
+
+    expect(sk->addToSession(QStringLiteral("Qwzxyk")), "addToSession");
+    expect(sk->isCorrect(QStringLiteral("Qwzxyk")), "session word accepted");
+
+    expect(sk->addToPersonal(QStringLiteral("Klocokovci")), "addToPersonal");
+    expect(sk->isCorrect(QStringLiteral("Klocokovci")), "personal word accepted");
+
+    delete sk;
+    std::printf("%s\n", failures ? "FAILED" : "ALL OK");
+    return failures ? 1 : 0;
+}
