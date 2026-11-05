@@ -50,6 +50,9 @@ type Verdict = Option<Vec<String>>;
 /// State shared by every speller of one language in this process.
 struct Shared {
     language: Language,
+    key: String,
+    /// Set once the background load has been started (first checked word).
+    loading_started: std::sync::Once,
     engine: Mutex<Option<Engine>>,
     /// Words added during this process (personal and session).
     extra_words: Mutex<HashSet<String>>,
@@ -195,29 +198,40 @@ impl Shared {
 
         let shared = Arc::new(Shared {
             language,
+            key: key.clone(),
+            loading_started: std::sync::Once::new(),
             engine: Mutex::new(None),
             extra_words: Mutex::new(HashSet::new()),
             cache: Mutex::new(HashMap::new()),
         });
-        all.insert(key.clone(), shared.clone());
-
-        let loading = shared.clone();
-        let started = std::thread::Builder::new()
-            .name(format!("harper-sonnet-{key}"))
-            .spawn(move || {
-                let built = catch_unwind(|| build_engine(language)).unwrap_or_else(|_| {
-                    eprintln!("harper-sonnet: loading {language:?} panicked");
-                    None
-                });
-                if let (Some(engine), Ok(mut slot)) = (built, loading.engine.lock()) {
-                    *slot = Some(engine);
-                }
-            });
-        if started.is_err() {
-            eprintln!("harper-sonnet: could not start the loader thread for {key}");
-        }
-
+        all.insert(key, shared.clone());
         Some(shared)
+    }
+
+    /// Start loading the dictionary in the background, once. Called on the
+    /// first word, not when Sonnet creates the speller: Sonnet creates
+    /// spellers for languages it never ends up using (dictionary lists,
+    /// language guessing), and each would otherwise cost seconds and
+    /// hundreds of MB.
+    fn ensure_loading(self: &Arc<Self>) {
+        self.loading_started.call_once(|| {
+            let loading = self.clone();
+            let language = self.language;
+            let started = std::thread::Builder::new()
+                .name(format!("harper-sonnet-{}", self.key))
+                .spawn(move || {
+                    let built = catch_unwind(|| build_engine(language)).unwrap_or_else(|_| {
+                        eprintln!("harper-sonnet: loading {language:?} panicked");
+                        None
+                    });
+                    if let (Some(engine), Ok(mut slot)) = (built, loading.engine.lock()) {
+                        *slot = Some(engine);
+                    }
+                });
+            if started.is_err() {
+                eprintln!("harper-sonnet: could not start the loader thread for {}", self.key);
+            }
+        });
     }
 
     fn is_ready(&self) -> bool {
@@ -225,7 +239,8 @@ impl Shared {
     }
 
     /// `None` while the dictionary is still loading (or failed to load).
-    fn verdict(&self, word: &str) -> Option<Verdict> {
+    fn verdict(self: &Arc<Self>, word: &str) -> Option<Verdict> {
+        self.ensure_loading();
         if self
             .extra_words
             .lock()
@@ -459,6 +474,7 @@ mod tests {
 
     fn ready(code: &str) -> Arc<Shared> {
         let shared = Shared::get_or_start(code).expect("supported language");
+        shared.verdict("x");
         let deadline = Instant::now() + Duration::from_secs(120);
         while !shared.is_ready() {
             assert!(Instant::now() < deadline, "{code} did not load");

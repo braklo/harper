@@ -9,16 +9,11 @@ HarperClient::HarperClient(QObject *parent)
 
 QStringList HarperClient::languages() const
 {
-    // Language codes as Sonnet (and Hunspell dictionary names) spell them.
-    return {QStringLiteral("sk_SK"),
-            QStringLiteral("en_US"),
-            QStringLiteral("en_GB"),
-            QStringLiteral("en_CA"),
-            QStringLiteral("en_AU"),
-            QStringLiteral("en_IN"),
-            QStringLiteral("de_DE"),
-            QStringLiteral("de_AT"),
-            QStringLiteral("de_CH")};
+    // Only languages Sonnet has trigrams for. For any other code (en_GB,
+    // de_AT, ...) Sonnet's language guessing asks the spellers themselves,
+    // which would make every KDE application load that Harper dictionary.
+    // Those codes stay with Hunspell.
+    return {QStringLiteral("sk_SK"), QStringLiteral("en_US"), QStringLiteral("de_DE")};
 }
 
 Sonnet::SpellerPlugin *HarperClient::createSpeller(const QString &language)

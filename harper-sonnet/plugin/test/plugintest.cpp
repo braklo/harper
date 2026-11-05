@@ -22,6 +22,12 @@ static void expect(bool ok, const char *what)
 int main(int argc, char **argv)
 {
     QCoreApplication app(argc, argv);
+    // The test adds a personal word; never let it reach the real
+    // ~/.config/harper-ls dictionary.
+    if (qEnvironmentVariableIsEmpty("HARPER_SONNET_USER_DICT") || argc < 2) {
+        std::printf("usage: HARPER_SONNET_USER_DICT=<tmp>/dictionary.txt plugintest <sonnet_harper.so>\n");
+        return 2;
+    }
     QPluginLoader loader(QString::fromLocal8Bit(argv[1]));
     auto *client = qobject_cast<Sonnet::Client *>(loader.instance());
     expect(client != nullptr, "plugin loads as org.kde.sonnet.Client");

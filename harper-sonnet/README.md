@@ -19,7 +19,7 @@ Sonnet only asks about single words, so this gives spelling, not grammar.
 cargo build --release                      # own workspace, panic = "unwind"
 cmake -S plugin -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
-./build/plugintest "$PWD/build/sonnet_harper.so"
+HARPER_SONNET_USER_DICT=$(mktemp -d)/dictionary.txt ./build/plugintest "$PWD/build/sonnet_harper.so"
 ```
 
 ## Use
