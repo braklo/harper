@@ -54,7 +54,7 @@ function padWithContext(source: string, start: number, end: number, contextLengt
 }
 
 const keepAliveCallback = () => {
-	ProtocolClient.lint('', 'example.com', {});
+	ProtocolClient.keepAlive().catch(() => {});
 	void syncGoogleDocsBridge();
 
 	setTimeout(keepAliveCallback, 400);

@@ -38,6 +38,20 @@ export default class ProtocolClient {
 		return p;
 	}
 
+	/**
+	 * Wake the background so the browser does not suspend it while a page is open.
+	 * Deliberately bypasses `lintCache`: a cached ping would reach the background
+	 * only once per cache TTL, which is longer than the browser's idle timeout.
+	 */
+	public static async keepAlive(): Promise<void> {
+		await chrome.runtime.sendMessage({
+			kind: 'lint',
+			text: '',
+			domain: 'example.com',
+			options: {},
+		});
+	}
+
 	public static async getLintConfig(): Promise<LintConfig> {
 		return (await chrome.runtime.sendMessage({ kind: 'getConfig' })).config;
 	}
